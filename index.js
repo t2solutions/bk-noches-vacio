@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const cookieParser = require('cookie-parser')
 const jwt = require('jsonwebtoken')
 const jwtKey = 'secret'
-const jwtExpirySeconds = 300
+const jwtExpirySeconds = process.env.JWT_TIME_EXPIRE || 300
 const dotenv = require('dotenv').config();
 
 const app = express();
@@ -16,7 +16,7 @@ app.use(bodyParser.json())
 app.use(
     bodyParser.urlencoded({
         extended: true,
-    })    
+    })
 )
 app.use(cookieParser())
 
@@ -31,9 +31,11 @@ app.get('/test', (request, response) => {
     response.json(jsonSalida);
 })
 
+
+
 app.post('/login', async(request, response) => {
 
-    var usernameIn = request.body.username;
+    var username = request.body.username;
     //var pwdIn = request.body.password;
 
     let loginInvoke = await db.doLogin2(request);
@@ -44,44 +46,114 @@ app.post('/login', async(request, response) => {
         doGetPersonalInformation = loginInvoke;
     }
 
-    if (doGetPersonalInformation.status == 200) 
-    {
-        // Create a new token with the username in the payload
-        // and which expires 300 seconds after issue
-        let token = jwt.sign({ usernameIn }, jwtKey, {
+    if (doGetPersonalInformation.status == 200) {
+        // Crear nuevo token con datos del id de usuario y tipo de usuario
+        // Este expira X segundos luego de entregarse
+        var tknPayload = {
+            'usr': doGetPersonalInformation.data[0].usr,
+            'rut': username,
+            'idUsuario': doGetPersonalInformation.data[0].idUsuario,
+            'idTipoUsuario': doGetPersonalInformation.data[0].idTipoUsuario
+        };
+        let token = jwt.sign(tknPayload, jwtKey, {
             algorithm: 'HS256',
             expiresIn: jwtExpirySeconds
         })
 
-        // set the cookie as the token string, with a similar max age as the token
-        // here, the max age is in milliseconds, so we multiply by 1000
-        //response.cookie('token', token, { maxAge: jwtExpirySeconds * 1000 })
         let jsonSalida = {
             'status': doGetPersonalInformation.status,
             'message': doGetPersonalInformation.message,
             'token': token
-         }
-         response.status(doGetPersonalInformation.status);
-         response.json(jsonSalida);
+        }
+        response.status(doGetPersonalInformation.status);
+        response.json(jsonSalida);
 
     } else {
         response.status(doGetPersonalInformation.status);
         response.json(doGetPersonalInformation);
     }
 
-    //response.status(doGetPersonalInformation.status);
-    //response.json(doGetPersonalInformation);
-
 })
 
-app.get('/combos/especie', async(request, response) => {
-
-     // We can obtain the session token from the requests cookies, which come with every request
+app.post('/calculo', async(request, response) => {
+    //Si el header token no viene se gatilla 401
     let token = request.headers.token
-    // if the cookie is not set, return an unauthorized error
     if (token == 'undefined') {
         return response.status(401).end()
     }
+    //Evaluacion del token
+    var payload = await jwtDep.getPayload(request, response);
+
+    var paramIn = {
+        'idTipoUsuario': request.body.idTipoUsuario,
+        'idUsuario': token.idUsuario || request.body.idUsuario,
+        'idRol': request.body.idRol,
+        'idEspecieOrigen': request.body.idEspecieOrigen,
+        'idZonaOrigen': request.body.idZonaOrigen,
+        'idNivelOrigen': request.body.idNivelOrigen,
+        'idSubnivelOrigen': request.body.idSubnivelOrigen,
+        'idEspecieDestino': request.body.idEspecieDestino,
+        'idZonaDestino': request.body.idZonaDestino,
+        'idNivelDestino': request.body.idNivelDestino,
+        'idSubnivelDestino': request.body.idSubnivelDestino
+    };
+    let doGetCalculo;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetCalculo = await db.doCalculo(paramIn);
+    } else {
+        doGetCalculo = payload;
+    }
+
+    response.status(doGetCalculo.status);
+    response.json(doGetCalculo);
+
+})
+
+app.post('/calculo/grid', async(request, response) => {
+    //Si el header token no viene se gatilla 401
+    let token = request.headers.token
+    if (token == 'undefined') {
+        return response.status(401).end()
+    }
+    //Evaluacion del token
+    var payload = await jwtDep.getPayload(request, response);
+
+    var paramIn = {
+        'idTipoUsuario': request.body.idTipoUsuario,
+        'idUsuario': token.idUsuario || request.body.idUsuario,
+        'idRol': request.body.idRol,
+        'idEspecieOrigen': request.body.idEspecieOrigen,
+        'idZonaOrigen': request.body.idZonaOrigen,
+        'idNivelOrigen': request.body.idNivelOrigen,
+        'idSubnivelOrigen': request.body.idSubnivelOrigen,
+        'idEspecieDestino': request.body.idEspecieDestino,
+        'idZonaDestino': request.body.idZonaDestino,
+        'idNivelDestino': request.body.idNivelDestino,
+        'idSubnivelDestino': request.body.idSubnivelDestino
+    };
+    let doGetCalculoGrid;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetCalculoGrid = await db.doGrillaCalculo(paramIn);
+    } else {
+        doGetCalculoGrid = payload;
+    }
+
+    if (doGetCalculoGrid.status == 200)
+    {
+        doGetCalculoGrid.data = doGetCalculoGrid.data[0];
+    }
+
+    response.status(doGetCalculoGrid.status);
+    response.json(doGetCalculoGrid);
+})
+
+app.get('/combos/especie', async(request, response) => {
+    //Si el header token no viene se gatilla 401
+    let token = request.headers.token
+    if (token == 'undefined') {
+        return response.status(401).end()
+    }
+    //Evaluacion del token
     var payload = await jwtDep.getPayload(request, response);
 
     let doGetEspecies;
@@ -90,35 +162,90 @@ app.get('/combos/especie', async(request, response) => {
     } else {
         doGetEspecies = payload;
     }
-       
+
     response.status(doGetEspecies.status);
     response.json(doGetEspecies);
 
 })
 
 app.get('/combos/zona', async(request, response) => {
-    let doGetZonas = await db.doGetZonas();
+    //Si el header token no viene se gatilla 401
+    let token = request.headers.token
+    if (token == 'undefined') {
+        return response.status(401).end()
+    }
+    //Evaluacion del token
+    var payload = await jwtDep.getPayload(request, response);
+
+    let doGetZonas;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetZonas = await db.doGetZonas();
+    } else {
+        doGetZonas = payload;
+    }
+
     response.status(doGetZonas.status);
     response.json(doGetZonas);
 })
 
 app.get('/combos/nivel', async(request, response) => {
-    let doGetNivel = await db.doGetNiveles();
+    //Si el header token no viene se gatilla 401
+    let token = request.headers.token
+    if (token == 'undefined') {
+        return response.status(401).end()
+    }
+    //Evaluacion del token
+    var payload = await jwtDep.getPayload(request, response);
+
+    let doGetNivel;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetNivel = await db.doGetNiveles();
+    } else {
+        doGetNivel = payload;
+    }
+
     response.status(doGetNivel.status);
     response.json(doGetNivel);
 })
 
 app.get('/combos/subnivel', async(request, response) => {
-    let doGetSubnivel = await db.doGetSubNiveles();
+    //Si el header token no viene se gatilla 401
+    let token = request.headers.token
+    if (token == 'undefined') {
+        return response.status(401).end()
+    }
+    //Evaluacion del token
+    var payload = await jwtDep.getPayload(request, response);
+
+    let doGetSubnivel;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetSubnivel = await db.doGetSubNiveles();
+    } else {
+        doGetSubnivel = payload;
+    }
+
     response.status(doGetSubnivel.status);
     response.json(doGetSubnivel);
 })
 
 app.get('/combos/rol', async(request, response) => {
-    let doGetRol;
+    //Si el header token no viene se gatilla 401
+    let token = request.headers.token
+    if (token == 'undefined') {
+        return response.status(401).end()
+    }
+    //Evaluacion del token
+    var payload = await jwtDep.getPayload(request, response);
 
+    let doGetRol;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetRol = await db.doGetRoles();
+    } else {
+        doGetRol = payload;
+    }
+
+    response.status(doGetRol.status);
     response.json(doGetRol);
-    response.status(200);
 })
 
 app.get('/token/refresh', async(request, response) => {

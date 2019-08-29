@@ -9,7 +9,6 @@ const options = {
     queueLimit: 0,
     password: process.env.DB_PASS,
     database: process.env.DB_DBNAME,
-    
     multipleStatements: true
 };
 const mysqlConnection = mysql.createPool(options);
@@ -26,7 +25,7 @@ async function doLogin2(request) {
             return result = { 'status': 500, 'message': err.sqlMessage };
         } else {
             return result = { 'status': 500, 'message': err.message };
-        }        
+        }
     }
 
     if (result[0].length > 0) {
@@ -50,7 +49,11 @@ async function doGetPersonalInformation(userId) {
         }
 
     } catch (err) {
-        return result = { 'status': 500, 'message': err.sqlMessage };
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
     }
 
 
@@ -67,7 +70,11 @@ async function doGetEspecies() {
         }
 
     } catch (err) {
-        return result = { 'status': 500, 'message': err.sqlMessage };
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
     }
 }
 
@@ -82,7 +89,30 @@ async function doGetZonas() {
         }
 
     } catch (err) {
-        return result = { 'status': 500, 'message': err.sqlMessage };
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
+    }
+}
+
+async function doGetRoles() {
+    let querySp = "SELECT id_rol AS idRol, descripcion_rol AS descripcion FROM Rol ORDER BY id_rol ASC;"
+    try {
+        var result = await mysqlConnection.query(querySp);
+        if (result[0].length > 0) {
+            return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
+        } else {
+            return result = { 'status': 404, 'message': 'Datos no encontrados' };
+        }
+
+    } catch (err) {
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
     }
 }
 
@@ -97,7 +127,11 @@ async function doGetNiveles() {
         }
 
     } catch (err) {
-        return result = { 'status': 500, 'message': err.sqlMessage };
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
     }
 }
 
@@ -112,23 +146,78 @@ async function doGetSubNiveles() {
         }
 
     } catch (err) {
-        return result = { 'status': 500, 'message': err.sqlMessage };
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
     }
 }
 
 
+async function doCalculo(params) {
+    let querySp = "CALL nochesvacio.SP_Calculo_NocheVacio(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @salida); select @salida";
+    try {
+        var parms = params;
+        var result = await mysqlConnection.query(querySp, [parms.idTipoUsuario,
+            parms.idUsuario, parms.idRol, parms.idEspecieOrigen, parms.idZonaOrigen, parms.idNivelOrigen, parms.idSubnivelOrigen,
+            parms.idEspecieDestino, parms.idZonaDestino, parms.idNivelDestino, parms.idSubnivelDestino
+        ]);
 
-const doCalculo = (request, response) => {
+    } catch (err) {
+        //next(err);
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
+    }
+
+    if (result[0].length > 0) {
+        if (result[0][0].idUsuario == '0') {
+            return result = { 'status': 401, 'message': 'Usuario y/o contraseña incorrectos' };
+        } else {
+            return result = { 'status': 200, 'message': 'OK', 'data': result[0][0] };
+        }
+
+    }
+
+}
+
+async function doGrillaCalculo(params) {
+    //let querySp = "SELECT id_subnivel AS idSubnivel, nombre_subnivel AS nombreSubNivel, id_zona as idZona, id_nivel AS idNivel, dir_georeferencia AS dirGeoReferencia FROM nivel ORDER BY id_subnivel ASC;"
+    let querySp = "CALL nochesvacio.SP_Grilla_NocheVacio(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
+    try {
+        var parms = params;
+        var result = await mysqlConnection.query(querySp, [parms.idTipoUsuario,
+            parms.idUsuario, parms.idRol, parms.idEspecieOrigen, parms.idZonaOrigen, parms.idNivelOrigen, parms.idSubnivelOrigen,
+            parms.idEspecieDestino, parms.idZonaDestino, parms.idNivelDestino, parms.idSubnivelDestino
+        ]);
+        if (result[0].length > 0) {
+            return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
+        } else {
+            return result = { 'status': 404, 'message': 'Datos no encontrados' };
+        }
+
+    } catch (err) {
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
+    }
 
 
 }
 
 module.exports = {
     doCalculo,
+    doGrillaCalculo,
     doLogin2,
     doGetPersonalInformation,
     doGetEspecies,
     doGetZonas,
     doGetNiveles,
     doGetSubNiveles,
+    doGetRoles,
 };
