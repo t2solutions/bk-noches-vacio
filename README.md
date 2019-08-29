@@ -2,7 +2,7 @@
 
 # agrosuper-api
 
-
+API de capa de backend para proyecto Noches de Vacio para Agrosuper mediante cliente Bitbiosis Ltda.
 
 ## Usage
 
@@ -14,7 +14,4 @@
 
 ### Tools
 
-Created with [Nodeclipse](https://github.com/Nodeclipse/nodeclipse-1)
- ([Eclipse Marketplace](http://marketplace.eclipse.org/content/nodeclipse), [site](http://www.nodeclipse.org))   
-
-Nodeclipse is free open-source project that grows with your contributions.
+Node.JS
