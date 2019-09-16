@@ -39,9 +39,11 @@ async function doLogin2(request) {
 }
 
 async function doGetPersonalInformation(userId) {
-    let querySp = "SELECT id_usuario AS idUsuario, rut, nombre, ap_pat AS apPat, ap_mat AS apMat, user AS usr, fono, id_tipousuario AS idTipoUsuario FROM usuario WHERE id_usuario = ?;"
+  //let querySp = "SELECT id_usuario AS idUsuario, rut, nombre, ap_pat AS apPat, ap_mat AS apMat, user AS usr, fono, id_tipousuario AS idTipoUsuario FROM usuario WHERE id_usuario = ?;"
+   let querySp2 = "SELECT usuario.id_usuario AS idUsuario, usuario.rut, usuario.nombre, usuario.ap_pat AS apPat, usuario.ap_mat AS apMat, usuario.user AS usr, usuario.fono, usuario.id_tipousuario AS idTipoUsuario ,tipo_usuario.id_rol,tipo_usuario.descripcion AS descripcion_rol FROM usuario,tipo_usuario WHERE tipo_usuario.id_tipousuario = usuario.id_tipousuario AND usuario.id_usuario=?; "
+    
     try {
-        var result = await mysqlConnection.query(querySp, [userId]);
+        var result = await mysqlConnection.query(querySp2, [userId]);
         if (result[0].length > 0) {
             return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
         } else {
@@ -60,7 +62,7 @@ async function doGetPersonalInformation(userId) {
 }
 
 async function doGetEspecies() {
-    let querySp = "SELECT id_especie AS idEspecie, nombre FROM especie ORDER BY id_especie ASC;"
+    let querySp = "SELECT id_especie, nombre FROM especie ORDER BY id_especie ASC;"
     try {
         var result = await mysqlConnection.query(querySp);
         if (result[0].length > 0) {
@@ -78,10 +80,10 @@ async function doGetEspecies() {
     }
 }
 
-async function doGetZonas() {
-    let querySp = "SELECT id_zona AS idZona, descripción AS descripcion, id_especie as idEspecie FROM Zona ORDER BY id_zona ASC;"
+async function doGetZonas(idEspecie) {
+    let querySp = "SELECT id_zona, descripción AS descripcion, id_especie FROM Zona WHERE id_especie = ? ORDER BY id_zona ASC;"
     try {
-        var result = await mysqlConnection.query(querySp);
+        var result = await mysqlConnection.query(querySp, [idEspecie]);
         if (result[0].length > 0) {
             return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
         } else {
@@ -96,9 +98,11 @@ async function doGetZonas() {
         }
     }
 }
+
+
 
 async function doGetRoles() {
-    let querySp = "SELECT id_rol AS idRol, descripcion_rol AS descripcion FROM Rol ORDER BY id_rol ASC;"
+    let querySp = "SELECT id_rol, descripcion_rol FROM Rol ORDER BY id_rol ASC;"
     try {
         var result = await mysqlConnection.query(querySp);
         if (result[0].length > 0) {
@@ -116,10 +120,10 @@ async function doGetRoles() {
     }
 }
 
-async function doGetNiveles() {
-    let querySp = "SELECT id_nivel AS idNivel, nombre_nivel AS nombreNivel, id_especie as idEspecie, cod_nivel AS codNivel FROM nivel ORDER BY idNivel ASC;"
+async function doGetNiveles(idEspecie) {
+    let querySp = "SELECT id_nivel, nombre_nivel, id_especie, cod_nivel FROM nivel WHERE id_especie=? ORDER BY id_nivel ASC;"
     try {
-        var result = await mysqlConnection.query(querySp);
+        var result = await mysqlConnection.query(querySp, [idEspecie]);
         if (result[0].length > 0) {
             return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
         } else {
@@ -135,10 +139,10 @@ async function doGetNiveles() {
     }
 }
 
-async function doGetSubNiveles() {
-    let querySp = "SELECT id_subnivel AS idSubnivel, nombre_subnivel AS nombreSubNivel, id_zona as idZona, id_nivel AS idNivel, dir_georeferencia AS dirGeoReferencia FROM nivel ORDER BY id_subnivel ASC;"
+async function doGetSubNiveles(idNivel) {
+    let querySp = "SELECT id_subnivel, nombre_subnivel, id_zona, id_nivel, dir_georeferencia FROM Subnivel WHERE id_nivel=? ORDER BY id_subnivel ASC;"
     try {
-        var result = await mysqlConnection.query(querySp);
+        var result = await mysqlConnection.query(querySp, [idNivel]);
         if (result[0].length > 0) {
             return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
         } else {
@@ -185,7 +189,6 @@ async function doCalculo(params) {
 }
 
 async function doGrillaCalculo(params) {
-    //let querySp = "SELECT id_subnivel AS idSubnivel, nombre_subnivel AS nombreSubNivel, id_zona as idZona, id_nivel AS idNivel, dir_georeferencia AS dirGeoReferencia FROM nivel ORDER BY id_subnivel ASC;"
     let querySp = "CALL nochesvacio.SP_Grilla_NocheVacio(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);";
     try {
         var parms = params;
@@ -206,6 +209,66 @@ async function doGrillaCalculo(params) {
             return result = { 'status': 500, 'message': err.message };
         }
     }
+}
+
+async function doGetLastSyncDate(idUsr) {
+    let querySp = "SELECT fecha AS ultimaFecha FROM sincronizacion WHERE id_usuario=?;"
+    try {
+        var result = await mysqlConnection.query(querySp, [idUsr]);
+        if (result[0].length > 0) {
+            return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
+        } else {
+            return result = { 'status': 404, 'message': 'Datos no encontrados' };
+        }
+
+    } catch (err) {
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
+    }
+}
+
+async function doSync(idUsr, arrayData) {
+
+    await mysqlConnection.beginTransaction();
+
+    let querySp =  "INSERT INTO nochesvacio.trazabilidad (id_usuario, id_especie_or, id_zona_or, id_nivel_or, id_nivel_or, id_especie_des, id_zona_des, id_nivel_des, id_subnivel_des, id_tipo_usuario, fecha) " +
+     " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, STR_TO_DATE(?, '%Y-%m-%d'));";   
+    try {
+
+        for (arry in arrayData) {
+            await mysqlConnection.execute(querySp, [arry.id_usuario,
+                arry.id_especie_or, arry.id_zona_or, arry.id_nivel_or, arry.id_nivel_or, arry.id_especie_des, arry.id_zona_des,
+                arry.id_nivel_des, arry.id_subnivel_des, arry.id_tipo_usuario, arry.fecha
+            ]);
+        }
+
+        //formato remoto 2019-08-28 18:00:00
+        await mysqlConnection.execute("UPDATE nochesvacio.sincronizacion SET fecha=DATE_FORMAT(NOW(),'%Y-%m-%d %H:%i:%s') WHERE id_usuario=?; ", [idUsr]);
+        await mysqlConnection.execute("UPDATE nochesvacio.parametros SET valor = (SELECT fecha FROM nochesvacio.sincronizacion where id_usuario=?); ", [idUsr]);
+ 
+        await mysqlConnection.commit();
+        return result = { 'status': 200, 'message': 'OK' };
+
+        // if (result[0].length > 0) {
+        //     return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
+        // } else {
+        //     return result = { 'status': 404, 'message': 'Datos no encontrados' };
+        // }
+
+    } catch (err) {
+        await mysqlConnection.rollback();
+ 
+        if (err.sqlMessage == 'undefined') {
+            return result = { 'status': 500, 'message': err.sqlMessage };
+        } else {
+            return result = { 'status': 500, 'message': err.message };
+        }
+    } finally {
+        mysqlConnection.release();
+    }
 
 
 }
@@ -220,4 +283,6 @@ module.exports = {
     doGetNiveles,
     doGetSubNiveles,
     doGetRoles,
+    doGetLastSyncDate,
+    doSync,
 };

@@ -49,11 +49,16 @@ app.post('/login', async(request, response) => {
     if (doGetPersonalInformation.status == 200) {
         // Crear nuevo token con datos del id de usuario y tipo de usuario
         // Este expira X segundos luego de entregarse
+        var lastSyncDate = await db.doGetLastSyncDate(doGetPersonalInformation.data[0].idUsuario);
+        lastSyncDate = lastSyncDate.data[0].ultimaFecha;
         var tknPayload = {
             'usr': doGetPersonalInformation.data[0].usr,
-            'rut': username,
+            'rut': username,            
             'idUsuario': doGetPersonalInformation.data[0].idUsuario,
-            'idTipoUsuario': doGetPersonalInformation.data[0].idTipoUsuario
+            'idTipoUsuario': doGetPersonalInformation.data[0].idTipoUsuario,
+            'idRol': doGetPersonalInformation.data[0].id_rol,
+            'descRol': doGetPersonalInformation.data[0].descripcion_rol,
+            'ultFechaSincronizacion': lastSyncDate
         };
         let token = jwt.sign(tknPayload, jwtKey, {
             algorithm: 'HS256',
@@ -108,6 +113,33 @@ app.post('/calculo', async(request, response) => {
     response.json(doGetCalculo);
 
 })
+
+app.post('/data/sync', async(request, response) => {
+   //Si el header token no viene se gatilla 401
+   let token = request.headers.token
+   if (token == 'undefined') {
+       return response.status(401).end()
+   }
+   //Evaluacion del token
+   var payload = await jwtDep.getPayload(request, response);
+
+   let doGetCalculoGrid;
+    if (payload != 'undefined' && payload.status != 401) {
+        doGetCalculoGrid = await db.doSync(request.idUsuario, request.data);
+    } else {
+        doGetCalculoGrid = payload;
+    }  
+
+    if (doGetCalculoGrid.status == 200)
+    {
+        doGetCalculoGrid.data = doGetCalculoGrid.data[0];
+    }
+
+    response.status(doGetCalculoGrid.status);
+    response.json(doGetCalculoGrid);
+
+})
+
 
 app.post('/calculo/grid', async(request, response) => {
     //Si el header token no viene se gatilla 401
@@ -168,7 +200,10 @@ app.get('/combos/especie', async(request, response) => {
 
 })
 
-app.get('/combos/zona', async(request, response) => {
+app.get('/combos/zona/:idEspecie', async(request, response) => {
+
+    let especieZona = request.params.idEspecie;
+  
     //Si el header token no viene se gatilla 401
     let token = request.headers.token
     if (token == 'undefined') {
@@ -179,7 +214,7 @@ app.get('/combos/zona', async(request, response) => {
 
     let doGetZonas;
     if (payload != 'undefined' && payload.status != 401) {
-        doGetZonas = await db.doGetZonas();
+        doGetZonas = await db.doGetZonas(especieZona);
     } else {
         doGetZonas = payload;
     }
@@ -188,7 +223,10 @@ app.get('/combos/zona', async(request, response) => {
     response.json(doGetZonas);
 })
 
-app.get('/combos/nivel', async(request, response) => {
+app.get('/combos/nivel/:idEspecie', async(request, response) => {
+
+    let especieNivel = request.params.idEspecie;
+
     //Si el header token no viene se gatilla 401
     let token = request.headers.token
     if (token == 'undefined') {
@@ -199,7 +237,7 @@ app.get('/combos/nivel', async(request, response) => {
 
     let doGetNivel;
     if (payload != 'undefined' && payload.status != 401) {
-        doGetNivel = await db.doGetNiveles();
+        doGetNivel = await db.doGetNiveles(especieNivel);
     } else {
         doGetNivel = payload;
     }
@@ -208,7 +246,10 @@ app.get('/combos/nivel', async(request, response) => {
     response.json(doGetNivel);
 })
 
-app.get('/combos/subnivel', async(request, response) => {
+app.get('/combos/subnivel/:idNivel', async(request, response) => {
+
+    let nivelBase = request.params.idNivel;
+
     //Si el header token no viene se gatilla 401
     let token = request.headers.token
     if (token == 'undefined') {
@@ -219,7 +260,7 @@ app.get('/combos/subnivel', async(request, response) => {
 
     let doGetSubnivel;
     if (payload != 'undefined' && payload.status != 401) {
-        doGetSubnivel = await db.doGetSubNiveles();
+        doGetSubnivel = await db.doGetSubNiveles(nivelBase);
     } else {
         doGetSubnivel = payload;
     }
