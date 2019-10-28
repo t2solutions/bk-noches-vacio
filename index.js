@@ -223,9 +223,11 @@ app.get('/combos/zona/:idEspecie', async(request, response) => {
     response.json(doGetZonas);
 })
 
-app.get('/combos/nivel/:idEspecie', async(request, response) => {
+//Rectificado
+app.get('/combos/nivel/:idEspecie/:idZona', async(request, response) => {
 
     let especieNivel = request.params.idEspecie;
+    let zonaNivel = request.params.idZona;
 
     //Si el header token no viene se gatilla 401
     let token = request.headers.token
@@ -237,7 +239,7 @@ app.get('/combos/nivel/:idEspecie', async(request, response) => {
 
     let doGetNivel;
     if (payload != 'undefined' && payload.status != 401) {
-        doGetNivel = await db.doGetNiveles(especieNivel);
+        doGetNivel = await db.doGetNiveles(especieNivel, zonaNivel);
     } else {
         doGetNivel = payload;
     }
@@ -246,9 +248,12 @@ app.get('/combos/nivel/:idEspecie', async(request, response) => {
     response.json(doGetNivel);
 })
 
-app.get('/combos/subnivel/:idNivel', async(request, response) => {
+//rectificado
+app.get('/combos/subnivel/:idNivel/:idEspecie/:idZona', async(request, response) => {
 
     let nivelBase = request.params.idNivel;
+    let especieBase = request.params.idEspecie;
+    let zonaBase = request.params.idZona;
 
     //Si el header token no viene se gatilla 401
     let token = request.headers.token
@@ -260,7 +265,7 @@ app.get('/combos/subnivel/:idNivel', async(request, response) => {
 
     let doGetSubnivel;
     if (payload != 'undefined' && payload.status != 401) {
-        doGetSubnivel = await db.doGetSubNiveles(nivelBase);
+        doGetSubnivel = await db.doGetSubNiveles(nivelBase, especieBase, zonaBase);
     } else {
         doGetSubnivel = payload;
     }

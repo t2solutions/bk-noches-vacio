@@ -80,8 +80,9 @@ async function doGetEspecies() {
     }
 }
 
+//rectificado
 async function doGetZonas(idEspecie) {
-    let querySp = "SELECT id_zona, descripción AS descripcion, id_especie FROM Zona WHERE id_especie = ? ORDER BY id_zona ASC;"
+    let querySp = "SELECT id_zona, descripcion, id_especie FROM Zona WHERE id_especie = ? ORDER BY id_zona ASC;"
     try {
         var result = await mysqlConnection.query(querySp, [idEspecie]);
         if (result[0].length > 0) {
@@ -120,10 +121,13 @@ async function doGetRoles() {
     }
 }
 
-async function doGetNiveles(idEspecie) {
-    let querySp = "SELECT id_nivel, nombre_nivel, id_especie, cod_nivel FROM nivel WHERE id_especie=? ORDER BY id_nivel ASC;"
+//rectificado
+async function doGetNiveles(idEspecie, idZona) {
+    //let querySp = "SELECT id_nivel, nombre_nivel, id_especie, cod_nivel FROM nivel WHERE id_especie=? ORDER BY id_nivel ASC;"
+    let querySp = "SELECT * FROM nivel n JOIN nivel_zona nz ON (nz.id_nivel = n.id_nivel) JOIN Zona z ON (z.id_zona=nz.id_zona) WHERE z.id_especie=? AND nz.id_zona=?";
+    
     try {
-        var result = await mysqlConnection.query(querySp, [idEspecie]);
+        var result = await mysqlConnection.query(querySp, [idEspecie, idZona]);
         if (result[0].length > 0) {
             return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
         } else {
@@ -139,10 +143,13 @@ async function doGetNiveles(idEspecie) {
     }
 }
 
-async function doGetSubNiveles(idNivel) {
-    let querySp = "SELECT id_subnivel, nombre_subnivel, id_zona, id_nivel, dir_georeferencia FROM Subnivel WHERE id_nivel=? ORDER BY id_subnivel ASC;"
+//rectificado
+async function doGetSubNiveles(idNivel, idEspecie, idZona) {
+    //let querySp = "SELECT id_subnivel, nombre_subnivel, id_zona, id_nivel, dir_georeferencia FROM Subnivel WHERE id_nivel=? ORDER BY id_subnivel ASC;"
+    let querySp = "SELECT * FROM Subnivel sn JOIN Zona z ON(sn.id_zona=z.id_zona AND z.id_especie=?) WHERE sn.id_zona=? AND sn.id_nivel=?;"
+
     try {
-        var result = await mysqlConnection.query(querySp, [idNivel]);
+        var result = await mysqlConnection.query(querySp, [idEspecie, idZona, idNivel]);
         if (result[0].length > 0) {
             return result = { 'status': 200, 'message': 'OK', 'data': result[0] };
         } else {
